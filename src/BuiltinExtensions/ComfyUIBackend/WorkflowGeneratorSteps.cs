@@ -388,6 +388,15 @@ public class WorkflowGeneratorSteps
                 });
                 g.LoadingModel = [torchCompile, 0];
             }
+            if (g.UserInput.TryGet(ComfyUIBackendExtension.PreferredDType, out string dtype) && dtype is "fp16" or "bf16")
+            {
+                string computeNode = g.CreateNode("ModelComputeDtype", new JObject()
+                {
+                    ["model"] = g.LoadingModel,
+                    ["dtype"] = dtype
+                });
+                g.LoadingModel = [computeNode, 0];
+            }
         }, -3);
         #endregion
         #region Base Image
@@ -512,7 +521,7 @@ public class WorkflowGeneratorSteps
                 if (g.UserInput.TryGet(T2IParamTypes.InitImageResetToNorm, out double resetFactor))
                 {
                     g.CurrentMedia = g.CurrentMedia.AsLatentImage(g.CurrentVae);
-                    string emptyImg = g.CreateEmptyImage(g.UserInput.GetImageWidth(), g.UserInput.GetImageHeight(), batchSize);
+                    string emptyImg = g.CreateEmptyImage(g.UserInput.GetImageResolution().Width, g.UserInput.GetImageResolution().Height, batchSize);
                     if (g.Features.Contains("comfy_latent_blend_masked") && currentMask is not null)
                     {
                         string blended = g.CreateNode("SwarmLatentBlendMasked", new JObject()
@@ -567,7 +576,7 @@ public class WorkflowGeneratorSteps
             }
             else
             {
-                g.CurrentMedia = g.EmptyImage(g.UserInput.GetImageWidth(), g.UserInput.GetImageHeight(), g.UserInput.Get(T2IParamTypes.BatchSize, 1), "5");
+                g.CurrentMedia = g.EmptyImage(g.UserInput.GetImageResolution().Width, g.UserInput.GetImageResolution().Height, g.UserInput.Get(T2IParamTypes.BatchSize, 1), "5");
             }
             if (g.UserInput.TryGet(T2IParamTypes.VideoAudioInput, out AudioFile audioData))
             {
@@ -1219,8 +1228,8 @@ public class WorkflowGeneratorSteps
             }
             if (g.IsWanVace() && g.BasicInputImage is not null)
             {
-                int width = g.UserInput.GetImageWidth();
-                int height = g.UserInput.GetImageHeight();
+                int width = g.UserInput.GetImageResolution().Width;
+                int height = g.UserInput.GetImageResolution().Height;
                 int frames = g.UserInput.Get(T2IParamTypes.Text2VideoFrames, 81);
                 string vaceNode = g.CreateNode("WanVaceToVideo", new JObject()
                 {
@@ -1375,8 +1384,8 @@ public class WorkflowGeneratorSteps
                     ["degrade_sigma"] = 0.0
                 });
                 g.FinalPrompt = [pidCond, 0];
-                int pidWidth = (g.UserInput.GetImageWidth() * 4 / 16) * 16;
-                int pidHeight = (g.UserInput.GetImageHeight() * 4 / 16) * 16;
+                int pidWidth = (g.UserInput.GetImageResolution().Width * 4 / 16) * 16;
+                int pidHeight = (g.UserInput.GetImageResolution().Height * 4 / 16) * 16;
                 string pidEmptyLatent = g.CreateNode("EmptyChromaRadianceLatentImage", new JObject()
                 {
                     ["batch_size"] = g.UserInput.Get(T2IParamTypes.BatchSize, 1),
@@ -1481,8 +1490,8 @@ public class WorkflowGeneratorSteps
                     WGNodeData pidDecoded = g.CreatePixelDecode(refineModel, g.CurrentMedia, origVae, g.UserInput.Get(T2IParamTypes.Seed) + 1, isRefiner: true);
                     if (g.UserInput.TryGet(T2IParamTypes.RefinerUpscale, out double pidUpscale) && pidUpscale != 1)
                     {
-                        int targetWidth = ((int)Math.Round(g.UserInput.GetImageWidth() * pidUpscale) / 16) * 16;
-                        int targetHeight = ((int)Math.Round(g.UserInput.GetImageHeight() * pidUpscale) / 16) * 16;
+                        int targetWidth = ((int)Math.Round(g.UserInput.GetImageResolution().Width * pidUpscale) / 16) * 16;
+                        int targetHeight = ((int)Math.Round(g.UserInput.GetImageResolution().Height * pidUpscale) / 16) * 16;
                         if (targetWidth != pidDecoded.Width || targetHeight != pidDecoded.Height)
                         {
                             g.CreateNode("ImageScale", new JObject()
@@ -1519,8 +1528,8 @@ public class WorkflowGeneratorSteps
                 // TODO: Better same-VAE check
                 bool doPixelUpscale = doUpscale && (upscaleMethod.StartsWith("pixel-") || upscaleMethod.StartsWith("model-"));
                 bool doPidUpscale = doUpscale && upscaleMethod.StartsWith("pidmodel-");
-                int width = (int)Math.Round(g.UserInput.GetImageWidth() * refineUpscale);
-                int height = (int)Math.Round(g.UserInput.GetImageHeight() * refineUpscale);
+                int width = (int)Math.Round(g.UserInput.GetImageResolution().Width * refineUpscale);
+                int height = (int)Math.Round(g.UserInput.GetImageResolution().Height * refineUpscale);
                 width = (width / 16) * 16; // avoid unworkable output sizes
                 height = (height / 16) * 16;
                 if (doPidUpscale)
@@ -2023,8 +2032,8 @@ public class WorkflowGeneratorSteps
                 }
                 int width = vidModel.StandardWidth <= 0 ? 1024 : vidModel.StandardWidth;
                 int height = vidModel.StandardHeight <= 0 ? 576 : vidModel.StandardHeight;
-                int imageWidth = g.UserInput.GetImageWidth();
-                int imageHeight = g.UserInput.GetImageHeight();
+                int imageWidth = g.UserInput.GetImageResolution().Width;
+                int imageHeight = g.UserInput.GetImageResolution().Height;
                 int resPrecision = 64;
                 if (vidModel.ModelClass?.CompatClass?.ID == "hunyuan-video")
                 {

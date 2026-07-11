@@ -983,7 +983,7 @@ public partial class WorkflowGenerator
                 string modelNode = CreateNode("UNETLoader", new JObject()
                 {
                     ["unet_name"] = model.ToString(ModelFolderFormat),
-                    ["weight_dtype"] = dtype
+                    ["weight_dtype"] = dtype is "bf16" or "fp16" ? "default" : dtype
                 }, id, false);
                 LoadingModel = [modelNode, 0];
             }
@@ -1129,8 +1129,8 @@ public partial class WorkflowGenerator
             string lensSamplingNode = CreateNode("ModelSamplingFlux", new JObject()
             {
                 ["model"] = LoadingModel,
-                ["width"] = UserInput.GetImageWidth(),
-                ["height"] = UserInput.GetImageHeight(),
+                ["width"] = UserInput.GetImageResolution().Width,
+                ["height"] = UserInput.GetImageResolution().Height,
                 ["max_shift"] = UserInput.Get(T2IParamTypes.SigmaShift, 1.15, sectionId: sectionId),
                 ["base_shift"] = 0.5
             });
@@ -1446,8 +1446,8 @@ public partial class WorkflowGenerator
                 string samplingNode = CreateNode("ModelSamplingFlux", new JObject()
                 {
                     ["model"] = LoadingModel,
-                    ["width"] = UserInput.GetImageWidth(),
-                    ["height"] = UserInput.GetImageHeight(),
+                    ["width"] = UserInput.GetImageResolution().Width,
+                    ["height"] = UserInput.GetImageResolution().Height,
                     ["max_shift"] = shiftVal,
                     ["base_shift"] = 0.5 // TODO: Does this need an input?
                 });

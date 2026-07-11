@@ -49,18 +49,6 @@ public class T2IParamInput
         },
         input =>
         {
-            if (input.TryGet(T2IParamTypes.RawResolution, out string res))
-            {
-                (string widthText, string heightText) = res.BeforeAndAfter('x');
-                int width = int.Parse(widthText.Trim());
-                int height = int.Parse(heightText.Trim());
-                input.Set(T2IParamTypes.Width, width);
-                input.Set(T2IParamTypes.Height, height);
-                input.Remove(T2IParamTypes.AltResolutionHeightMult);
-            }
-        },
-        input =>
-        {
             if (input.TryGet(T2IParamTypes.Loras, out List<string> loras))
             {
                 List<string> weights = input.Get(T2IParamTypes.LoraWeights, []);
@@ -210,52 +198,25 @@ public class T2IParamInput
         }
     }
 
-    /// <summary>Reference sheet of 512x512 aspect ratio approximations for custom Aspect Ratio selection.</summary>
-    public static Dictionary<string, (int, int)> ResolutionAspectReferences = new()
+    /// <summary>Gets the desired image resolution, automatically using alt-res parameters if needed.</summary>
+    public (int Width, int Height) GetImageResolution(int defWidth = 512, int defHeight = 512)
     {
-        ["1:1"] = (512, 512),
-        ["4:3"] = (576, 448),
-        ["3:2"] = (608, 416),
-        ["8:5"] = (608, 384),
-        ["16:9"] = (672, 384),
-        ["21:9"] = (768, 320),
-        ["2:3"] = (416, 608),
-        ["5:8"] = (384, 608),
-        ["9:16"] = (384, 672),
-        ["9:21"] = (320, 768)
-    };
+        if (TryGet(T2IParamTypes.SideLength, out int sideLen) && TryGet(T2IParamTypes.AspectRatio, out string aspectRatio))
+        {
+            if (!string.IsNullOrWhiteSpace(aspectRatio) && aspectRatio.Contains(':'))
+            {
+                string[] parts = aspectRatio.Split(':', 2);
+                if (parts.Length == 2 && double.TryParse(parts[0], out double aspectW) && double.TryParse(parts[1], out double aspectH) && aspectW > 0 && aspectH > 0)
+                {
+                    double ratio = aspectW / aspectH;
+                    double width = sideLen * Math.Sqrt(ratio);
+                    double height = sideLen * Math.Sqrt(1.0 / ratio);
+                    return ((int)Utilities.RoundToPrecision(width, 16), (int)Utilities.RoundToPrecision(height, 16));
+                }
+            }
+        }
 
-    /// <summary>Gets the desired image width.</summary>
-    public int GetImageWidth(int def = 512)
-    {
-        if (TryGet(T2IParamTypes.RawResolution, out string res))
-        {
-            return int.Parse(res.Before('x'));
-        }
-        if (TryGet(T2IParamTypes.SideLength, out int sideLen) && TryGet(T2IParamTypes.AspectRatio, out string aspect) && ResolutionAspectReferences.TryGetValue(aspect, out (int, int) resRef))
-        {
-            // NOTE: This math must match params.js AspectRatio
-            return (int)Utilities.RoundToPrecision(resRef.Item1 * (sideLen / 512.0), 16);
-        }
-        return Get(T2IParamTypes.Width, def);
-    }
-
-    /// <summary>Gets the desired image height, automatically using alt-res parameter if needed.</summary>
-    public int GetImageHeight(int def = 512)
-    {
-        if (TryGet(T2IParamTypes.RawResolution, out string res))
-        {
-            return int.Parse(res.After('x'));
-        }
-        if (TryGet(T2IParamTypes.AltResolutionHeightMult, out double val) && TryGet(T2IParamTypes.Width, out int width))
-        {
-            return (int)(val * width);
-        }
-        if (TryGet(T2IParamTypes.SideLength, out int sideLen) && TryGet(T2IParamTypes.AspectRatio, out string aspect) && ResolutionAspectReferences.TryGetValue(aspect, out (int, int) resRef))
-        {
-            return (int)Utilities.RoundToPrecision(resRef.Item2 * (sideLen / 512.0), 16);
-        }
-        return Get(T2IParamTypes.Height, def);
+        return (Get(T2IParamTypes.Width, defWidth), Get(T2IParamTypes.Height, defHeight));
     }
 
     /// <summary>Returns a perfect duplicate of this parameter input, with new reference addresses.</summary>
@@ -527,9 +488,6 @@ public class T2IParamInput
     /// <summary>Random instance for <see cref="T2IParamTypes.WildcardSeed"/>.</summary>
     public Random WildcardRandom = null;
 
-    /// <summary>Offset value for Wildcard Seed, to keep it unique.</summary>
-    private const int WCSeedOffset = 17;
-
     /// <summary>Gets the user's set wildcard seed.</summary>
     public int GetWildcardSeed()
     {
@@ -564,7 +522,7 @@ public class T2IParamInput
         {
             return WildcardRandom;
         }
-        WildcardRandom = new(GetWildcardSeed() + WCSeedOffset);
+        WildcardRandom = new(GetWildcardSeed());
         return WildcardRandom;
     }
 

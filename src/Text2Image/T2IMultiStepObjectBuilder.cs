@@ -38,7 +38,7 @@ public class T2IMultiStepObjectBuilder
         user_input = user_input.Clone();
         if (user_input.TryGet(T2IParamTypes.AltResolutionHeightMult, out _))
         {
-            user_input.Set(T2IParamTypes.Height, user_input.GetImageHeight());
+            user_input.Set(T2IParamTypes.Height, user_input.GetImageResolution().Height);
             user_input.Remove(T2IParamTypes.AspectRatio);
             user_input.Remove(T2IParamTypes.AltResolutionHeightMult);
         }

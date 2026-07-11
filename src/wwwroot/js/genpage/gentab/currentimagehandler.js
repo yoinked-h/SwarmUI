@@ -576,6 +576,12 @@ function copy_current_image_params() {
         let elem = document.getElementById(`input_${param.id}`);
         let val = metadata[param.id];
         if (elem && val !== undefined && val !== null && val !== '') {
+            if (param.id.includes('seed') && param.id !== 'seed') {
+                let mainGenSeed = metadata['seed'];
+                if (typeof mainGenSeed !== 'undefined' && val == mainGenSeed) {
+                    continue;
+                }
+            }
             let group = param.group;
             while (group) {
                 if (group.toggles) {
@@ -801,8 +807,6 @@ function toggleStar(path, rawSrc) {
     });
 }
 
-defaultButtonChoices = 'Use As Init,Edit Image,Star,Reuse Parameters';
-
 function getImageFullSrc(src) {
     if (src == null) {
         return null;
@@ -940,9 +944,8 @@ function setCurrentImage(src, metadata = '', batchId = '', previewGrow = false, 
     let buttons = createDiv(null, 'current-image-buttons');
     let imagePathClean = getImageFullSrc(src);
     let buttonsChoice = getUserSetting('ButtonsUnderMainImages', '');
-    let isUsingDefaults = buttonsChoice == '';
-    if (isUsingDefaults) {
-        buttonsChoice = defaultButtonChoices;
+    if (buttonsChoice == '') {
+        buttonsChoice = 'Use As Init,Edit Image,Star,Reuse Parameters,Copy File';
     }
     let buttonDefs = {};
     let subButtons = [];
@@ -1001,16 +1004,6 @@ function setCurrentImage(src, metadata = '', batchId = '', previewGrow = false, 
         let key = normalizeButtonKey(name);
         if (key) {
             buttonsChoiceOrdered.push(key);
-        }
-    }
-    if (isUsingDefaults) {
-        for (let reg of registeredMediaButtons) {
-            if (reg.isDefault) {
-                let key = normalizeButtonKey(reg.name);
-                if (key && !buttonsChoiceOrdered.includes(key)) {
-                    buttonsChoiceOrdered.push(key);
-                }
-            }
         }
     }
     let isDataImage = src.startsWith('data:');

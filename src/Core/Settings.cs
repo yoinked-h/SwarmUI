@@ -509,10 +509,10 @@ public class Settings : AutoConfiguration
         public bool AutoSwapImagesIncludesFullView = false; // TODO: UserUI
 
         [ConfigComment("A list of what buttons to include directly under images in the main prompt area of the Generate tab.\nOther buttons will be moved into the 'More' dropdown.\nThis should be a comma separated list."
-            + "\nThe following options are available: \"Use As Init\", \"Use As Image Prompt\", \"Edit Image\", \"Upscale 2x\", \"Star\", \"Reuse Parameters\", \"Open In Folder\", \"Delete\", \"Download\", \"View In History\", \"Refine Image\", \"Copy Path\", \"Copy Raw Metadata\""
+            + "\nThe following options are available: \"Use As Init\", \"Use As Image Prompt\", \"Edit Image\", \"Upscale 2x\", \"Star\", \"Reuse Parameters\", \"Open In Folder\", \"Delete\", \"Download\", \"View In History\", \"Refine Image\", \"Copy Path\", \"Copy Raw Metadata\", \"Copy File\""
             + "\nSome buttons like 'Edit Image' may only apply to images and will not show for audio or video files."
             + "\nExtensions can add their own button names here too."
-            + "\nThe default is blank, which currently implies 'Use As Init,Edit Image,Star,Reuse Parameters'")]
+            + "\nThe default is 'Use As Init,Edit Image,Star,Reuse Parameters,Copy FIle'")]
         public string ButtonsUnderMainImages = ""; // TODO: UserUI
 
         [ConfigComment("How to format image metadata on the Generate tab when looking at an image.\n'below' means put the metadata below the image.\n'side' means put the image in a vertical column to the side.\n'auto' means switch to whichever fits better depending on the page width.\nDefault is 'auto'.")]
@@ -612,7 +612,7 @@ public class Settings : AutoConfiguration
         public string Language = "en"; // TODO: UserUI
 
         [ConfigComment("Comma-separated list of parameters to exclude from 'Reuse Parameters'.\nFor example, set 'model' to not copy the model, or 'model,refinermodel,videomodel' to really never copy any models.")]
-        public string ReuseParamExcludeList = "wildcardseed";
+        public string ReuseParamExcludeList = "";
 
         /// <summary>Settings related to audio.</summary>
         public class AudioData : AutoConfiguration

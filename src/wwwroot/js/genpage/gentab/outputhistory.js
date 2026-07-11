@@ -141,6 +141,15 @@ function buttonsForImage(fullsrc, src, metadata, isCurrentImage = false) {
         href: escapeHtmlForUrl(src),
         is_download: true
     });
+    buttons.push({
+        label: 'Copy File',
+        title: 'Copies the selected file to clipboard.',
+        onclick: (e) => {
+            genericRequest('CopyImagePath', {'path': fullsrc}, data => {
+                doNoticePopover('Copied!', 'notice-pop-green');
+            });
+        }
+    });
     // TODO: Multi-compat Download (create a zip?)
     if (permissions.hasPermission('user_delete_image') && !isDataImage) {
         buttons.push({

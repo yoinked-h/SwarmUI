@@ -86,11 +86,11 @@ public class GridGeneratorExtension : Extension
         {
             if (call.Grid.MinWidth == 0)
             {
-                call.Grid.MinWidth = call.Grid.InitialParams.GetImageWidth();
+                call.Grid.MinWidth = call.Grid.InitialParams.GetImageResolution().Width;
             }
             if (call.Grid.MinHeight == 0)
             {
-                call.Grid.MinHeight = call.Grid.InitialParams.GetImageHeight();
+                call.Grid.MinHeight = call.Grid.InitialParams.GetImageResolution().Height;
             }
             string cleaned = T2IParamTypes.CleanTypeName(param);
             if (cleaned == PromptReplaceParameter.Type.ID)
@@ -121,7 +121,7 @@ public class GridGeneratorExtension : Extension
                 (int width, int height) = T2IParamTypes.AspectRatioToSizeReference(val);
                 if (width > 0)
                 {
-                    (width, height) = Utilities.ResToModelFit(width, height, call.Grid.InitialParams.GetImageWidth() * call.Grid.InitialParams.GetImageHeight());
+                    (width, height) = Utilities.ResToModelFit(width, height, call.Grid.InitialParams.GetImageResolution().Width * call.Grid.InitialParams.GetImageResolution().Height);
                     call.Grid.MinWidth = Math.Min(call.Grid.MinWidth, width);
                     call.Grid.MinHeight = Math.Min(call.Grid.MinHeight, height);
                     call.Params["width"] = $"{width}";

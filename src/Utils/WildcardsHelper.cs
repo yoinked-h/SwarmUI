@@ -1,4 +1,4 @@
-﻿using FreneticUtilities.FreneticExtensions;
+using FreneticUtilities.FreneticExtensions;
 using FreneticUtilities.FreneticToolkit;
 using Newtonsoft.Json.Linq;
 using SwarmUI.Core;
@@ -28,7 +28,7 @@ public class WildcardsHelper
         /// <summary>Max length cache, calculated in T2IParamInput.</summary>
         public string MaxLength = null;
 
-        public JObject GetNetObject(bool dataImgs = true)
+        public JObject GetNetObject(bool dataImgs = true, bool truncate = false)
         {
             string previewImg = Image ?? "imgs/model_placeholder.jpg";
             if (!dataImgs && previewImg is not null && previewImg.StartsWithFast("data:"))
@@ -38,8 +38,7 @@ public class WildcardsHelper
             return new()
             {
                 ["name"] = Name,
-                ["options"] = JArray.FromObject(Options),
-                ["raw"] = Raw,
+                ["raw"] = truncate && Raw.Length > 512 ? Raw[..512] + "..." : Raw,
                 ["image"] = previewImg
             };
         }
@@ -94,7 +93,7 @@ public class WildcardsHelper
             wildcard.TimeModified = new DateTimeOffset(File.GetLastWriteTimeUtc(fname)).ToUnixTimeMilliseconds();
             string rawText = StringConversionHelper.UTF8Encoding.GetString(File.ReadAllBytes(fname)).Replace("\r\n", "\n").Replace("\r", "").Replace("\uFEFF", "");
             wildcard.Raw = rawText;
-            wildcard.Options = [.. rawText.Split('\n').Select(card => card.Before('#').Trim()).Where(card => !string.IsNullOrWhiteSpace(card))];
+            wildcard.Options = [.. rawText.Split('\n').Select(card => card.Before('#').Trim().Replace("\\n", "\n")).Where(card => !string.IsNullOrWhiteSpace(card))];
             if (wildcard.Image is null && File.Exists($"{Folder}/{name}.jpg"))
             {
                 wildcard.Image = new Image(File.ReadAllBytes($"{Folder}/{name}.jpg"), MediaType.ImageJpg).AsDataString();

@@ -46,6 +46,7 @@ class AdvancedPopover {
         }
         this.created = Date.now();
         this.optionArea.style.width = (this.optionArea.offsetWidth + this.overExtendBy) + 'px';
+        this.scrollFix();
     }
 
     remove() {
@@ -257,6 +258,49 @@ class UIImprovementHandler {
         this.lastSelectedTextbox = null;
         this.timeOfLastTextboxSelectTrack = 0;
         this.lastTextboxCursorPos = -1;
+        this.videoControlDragging = null;
+        this.sustainPopover = null;
+        document.addEventListener('click', e => {
+            if (this.sustainPopover && !this.sustainPopover.contains(e.target)) {
+                this.sustainPopover.remove();
+                this.sustainPopover = null;
+            }
+        });
+        document.addEventListener('contextmenu', e => {
+            if (this.sustainPopover && !this.sustainPopover.contains(e.target)) {
+                this.sustainPopover.remove();
+                this.sustainPopover = null;
+            }
+        });
+        document.addEventListener('keydown', e => {
+            if (this.sustainPopover && e.key == 'Escape') {
+                this.sustainPopover.remove();
+                this.sustainPopover = null;
+            }
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (this.videoControlDragging) {
+                this.videoControlDragging.drag(e);
+            }
+        });
+        document.addEventListener('mouseup', () => {
+            if (this.videoControlDragging) {
+                this.videoControlDragging.isDragging = false;
+                this.videoControlDragging = null;
+            }
+        });
+        document.addEventListener('pointerup', () => {
+            if (this.videoControlDragging) {
+                this.videoControlDragging.isDragging = false;
+                this.videoControlDragging = null;
+            }
+        });
+        document.addEventListener('pointercancel', () => {
+            if (this.videoControlDragging) {
+                this.videoControlDragging.isDragging = false;
+                this.videoControlDragging = null;
+            }
+        });
         document.addEventListener('focusout', (e) => {
             if (e.target.tagName == 'TEXTAREA') {
                 this.lastSelectedTextbox = e.target;
@@ -386,8 +430,14 @@ class UIImprovementHandler {
             }
             isDoingADrag = true;
             let files = this.getFileList(e.dataTransfer, e);
-            if (files.length > 0 && files.filter(f => f.type.startsWith('image/')).length > 0) {
+            if (files.length > 0 && files.filter(f => f.type.startsWith('image/') || f.type.startsWith('video/') || f.type == 'application/json').length > 0) {
                 let targets = document.getElementsByClassName('drag_image_target');
+                for (let target of targets) {
+                    target.classList.add('drag_image_target_highlight');
+                }
+            }
+            if (files.length > 0 && files.filter(f => f.type.startsWith('audio/')).length > 0) {
+                let targets = document.getElementsByClassName('drag_audio_target');
                 for (let target of targets) {
                     target.classList.add('drag_image_target_highlight');
                 }
@@ -397,6 +447,10 @@ class UIImprovementHandler {
             setTimeout(() => {
                 isDoingADrag = false;
                 let targets = document.getElementsByClassName('drag_image_target'); // intentionally don't search "_highlight" due to browse misbehavior
+                for (let target of targets) {
+                    target.classList.remove('drag_image_target_highlight');
+                }
+                targets = document.getElementsByClassName('drag_audio_target');
                 for (let target of targets) {
                     target.classList.remove('drag_image_target_highlight');
                 }
@@ -470,7 +524,21 @@ class UIImprovementHandler {
         }
         let popId = `uiimprover_${elem.id}`;
         let rect = elem.getBoundingClientRect();
-        let buttons = [...elem.options].filter(o => o.style.display != 'none').map(o => { return { key_html: o.dataset.cleanname, title: o.title, key: o.innerText, searchable: `${o.dataset.cleanname} ${o.innerText} ${o.value}`, action: () => { elem.value = o.value; triggerChangeFor(elem); } }; })
+        let options = [...elem.options].filter(o => o.style.display != 'none');
+        /* TEMP Firefox v152 bugfix: if elem options duplicate, rebuild the options list */
+        let duplicates = options.filter(o => options.findLastIndex(o2 => o2.value == o.value) != options.indexOf(o));
+        if (duplicates.length > 0) {
+            console.log(`Duplicate value found for ${elem.id}: ${duplicates.map(o => o.value).join(', ')}`);
+            options = [... elem.options];
+            let newOptions = options.filter(o => o.style.display == 'none' || options.findIndex(o2 => o2.value == o.value) == options.indexOf(o));
+            let val = elem.value;
+            elem.innerHTML = '';
+            for (let o of newOptions) {
+                elem.appendChild(o);
+            }
+            elem.value = val;
+        }
+        let buttons = [...elem.options].filter(o => o.style.display != 'none').map(o => { return { key_html: o.dataset.cleanname, title: o.title, key: o.innerText, searchable: `${o.dataset.cleanname} ${o.innerText} ${o.value}`, action: () => { o.selected = true; triggerChangeFor(elem); } }; });
         this.lastPopover = new AdvancedPopover(popId, buttons, true, rect.x, rect.y, elem.parentElement, elem.selectedIndex < 0 ? null : elem.selectedOptions[0].innerText, 0);
         e.preventDefault();
         e.stopPropagation();
@@ -509,6 +577,7 @@ class UIImprovementHandler {
 }
 
 uiImprover = new UIImprovementHandler();
+
 
 ///////////// Older-style popover code, to be cleaned
 

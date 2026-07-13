@@ -1,4 +1,4 @@
-﻿using SwarmUI.Utils;
+using SwarmUI.Utils;
 using SixLabors.ImageSharp;
 using System.IO;
 using SixLabors.ImageSharp.Metadata.Profiles.Exif;
@@ -54,8 +54,24 @@ public class ImageFile : MediaFile
         return stream.ToArray();
     }
 
+    /// <summary>Internal cache of <see cref="ToIS"/> to avoid reprocessing.</summary>
+    public ISImage _CacheISImg;
+
     /// <summary>Gets an ImageSharp <see cref="ISImage"/> for this image.</summary>
-    public ISImage ToIS => ISImage.Load(RawData);
+    public ISImage ToIS
+    {
+        get
+        {
+            if (_CacheISImg is null)
+            {
+                lock (this)
+                {
+                    _CacheISImg ??= ISImage.Load(RawData);
+                }
+            }
+            return _CacheISImg;
+        }
+    }
 
     /// <summary>Returns the (width, height) of the image.</summary>
     public (int, int) GetResolution()
@@ -72,9 +88,10 @@ public class ImageFile : MediaFile
         {
             return null;
         }
+        metadataText ??= GetMetadata();
         ISImage img = ToIS;
         float factor = 256f / Math.Min(img.Width, img.Height);
-        img.Mutate(i => i.Resize((int)(img.Width * factor), (int)(img.Height * factor)));
+        img = img.Clone(i => i.Resize((int)(img.Width * factor), (int)(img.Height * factor)));
         if (!string.IsNullOrWhiteSpace(metadataText))
         {
             img.Metadata.XmpProfile = null;
@@ -160,7 +177,7 @@ public class ImageFile : MediaFile
         {
             return this;
         }
-        img.Mutate(i => i.Resize(width, height));
+        img = img.Clone(i => i.Resize(width, height));
         return new Image(ISImgToPngBytes(img), Type);
     }
 
@@ -186,11 +203,11 @@ public class ImageFile : MediaFile
                 return pngMetadata;
             }
             string output = null;
-            if (img.Metadata?.ExifProfile?.TryGetValue(ExifTag.Model, out var data) ?? false)
+            if (img.Metadata?.ExifProfile?.TryGetValue(ExifTag.Model, out IExifValue<string> data) ?? false)
             {
                 output = data.Value;
             }
-            if (img.Metadata?.ExifProfile?.TryGetValue(ExifTag.UserComment, out var data2) ?? false)
+            if (img.Metadata?.ExifProfile?.TryGetValue(ExifTag.UserComment, out IExifValue<EncodedString> data2) ?? false)
             {
                 output = data2.Value.Text;
             }
@@ -226,12 +243,7 @@ public class ImageFile : MediaFile
         {
             "PNG" => "png",
             "JPG" => "jpg",
-            "JPG90" => "jpg", // NOTE: Legacy (0.9.6) format variants with built-in quality selector
-            "JPG75" => "jpg",
             "WEBP_LOSSLESS" => "webp",
-            "WEBP_100" => "webp",
-            "WEBP_90" => "webp",
-            "WEBP_75" => "webp",
             "WEBP" => "webp",
             _ => throw new ArgumentException("Unknown format: " + format, nameof(format)),
         };
@@ -266,7 +278,6 @@ public class ImageFile : MediaFile
             string actualStealthMode = stealthMetadata.ToLowerInvariant();
             ISImage32 rgbaImage = img.CloneAs<Rgba32>();
             MetadataHelper.EncodeStealthMetadata(rgbaImage, metadata, actualStealthMode, format);
-            img.Dispose();
             img = rgbaImage;
         }
         img.Metadata.XmpProfile = null;
@@ -301,7 +312,7 @@ public class ImageFile : MediaFile
                     {
                         TextCompressionThreshold = int.MaxValue,
                         BitDepth = img.PixelType.BitsPerPixel > 32 ? PngBitDepth.Bit16 : PngBitDepth.Bit8,
-                        CompressionLevel = PngCompressionLevel.Level1,
+                        CompressionLevel = PngCompressionLevel.Level6,
                         ColorType = PngColorType.RgbWithAlpha,
                         TransparentColorMode = PngTransparentColorMode.Preserve
                     };
@@ -313,7 +324,7 @@ public class ImageFile : MediaFile
                     {
                         TextCompressionThreshold = int.MaxValue,
                         BitDepth = img.PixelType.BitsPerPixel > 32 ? PngBitDepth.Bit16 : PngBitDepth.Bit8,
-                        CompressionLevel = PngCompressionLevel.Level1
+                        CompressionLevel = PngCompressionLevel.Level6
                     };
                     img.SaveAsPng(ms, encoder);
                 }
@@ -323,14 +334,6 @@ public class ImageFile : MediaFile
                 type = MediaType.ImageJpg;
                 img.SaveAsJpeg(ms, new JpegEncoder() { Quality = quality });
                 break;
-            case "JPG90": // NOTE: Legacy (0.9.6) format variants with built-in quality selector
-                type = MediaType.ImageJpg;
-                img.SaveAsJpeg(ms, new JpegEncoder() { Quality = 90 });
-                break;
-            case "JPG75":
-                type = MediaType.ImageJpg;
-                img.SaveAsJpeg(ms, new JpegEncoder() { Quality = 75 });
-                break;
             case "WEBP_LOSSLESS":
                 type = MediaType.ImageWebp;
                 img.SaveAsWebp(ms, new WebpEncoder() { NearLossless = true, FileFormat = WebpFileFormatType.Lossless, Quality = 100 });
@@ -338,18 +341,6 @@ public class ImageFile : MediaFile
             case "WEBP":
                 type = MediaType.ImageWebp;
                 img.SaveAsWebp(ms, new WebpEncoder() { NearLossless = false, FileFormat = WebpFileFormatType.Lossy, Quality = quality });
-                break;
-            case "WEBP_100":
-                type = MediaType.ImageWebp;
-                img.SaveAsWebp(ms, new WebpEncoder() { NearLossless = false, FileFormat = WebpFileFormatType.Lossy, Quality = 100 });
-                break;
-            case "WEBP_90":
-                type = MediaType.ImageWebp;
-                img.SaveAsWebp(ms, new WebpEncoder() { NearLossless = false, FileFormat = WebpFileFormatType.Lossy, Quality = 90 });
-                break;
-            case "WEBP_75":
-                type = MediaType.ImageWebp;
-                img.SaveAsWebp(ms, new WebpEncoder() { NearLossless = false, FileFormat = WebpFileFormatType.Lossy, Quality = 75 });
                 break;
             default:
                 throw new SwarmReadableErrorException($"User setting for image format is '{format}', which is invalid");
